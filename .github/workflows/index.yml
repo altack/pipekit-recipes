@@ -1,0 +1,62 @@
+name: index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "recipes/**"
+      - "publishers.yaml"
+      - "scripts/index.ts"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/index.yml"
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: index
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - name: Restore previous index.json (for cache)
+        run: |
+          mkdir -p .cache
+          if git fetch origin gh-pages 2>/dev/null; then
+            git show origin/gh-pages:index.json > .cache/index.json 2>/dev/null \
+              && echo "[cache] restored prior index.json" \
+              || echo "[cache] no prior index.json on gh-pages"
+          else
+            echo "[cache] gh-pages branch does not exist yet"
+          fi
+
+      - name: Build index.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OUT: ${{ github.workspace }}/_site/index.json
+          CACHE: ${{ github.workspace }}/.cache/index.json
+        run: |
+          mkdir -p _site
+          bun run scripts/index.ts
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          force_orphan: true
+          commit_message: "Index ${{ github.sha }} @ ${{ github.run_started_at }}"
