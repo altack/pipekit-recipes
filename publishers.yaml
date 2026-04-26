@@ -1,0 +1,7 @@
+# External publishers indexed at pipekit.dev alongside @pipekit/* recipes.
+#
+# To register, open a PR adding one entry. See README.md for the contract.
+# The canonical pipekit org is implicit (its recipes live in this repo) and
+# is not listed here.
+
+publishers: []

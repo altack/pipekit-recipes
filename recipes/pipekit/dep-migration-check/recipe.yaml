@@ -1,0 +1,116 @@
+name: dep-migration-check
+version: 0.1.0
+description: |
+  Test a dependency upgrade against the consumer app end-to-end. Boots the app at
+  current master, walks routes/flows, applies the upgrade, plans + executes
+  migrations (incl. fixes for undocumented breakage), verifies build, replays the
+  catalog against the upgraded app, and emits a structured report.
+prompt: ./prompt.md
+
+requires:
+  commands: [git, jq, yq, node, npm, chromium, agent-browser]
+  env:      [ANTHROPIC_API_KEY]
+  mounts:   [/repo]
+
+agents:
+  preferred: [claude-code]
+  models:
+    claude-code: opus
+
+inputs:
+  schema:
+    type: object
+    required: [boot, packages]
+    additionalProperties: false
+    properties:
+      boot:
+        type: object
+        required: [install, dev, ready]
+        additionalProperties: false
+        properties:
+          install: { type: string, description: "Install command run by setup; re-run by upgrade.sh." }
+          dev:     { type: string, description: "Long-running dev server command." }
+          build:   { type: string, description: "Optional production build command." }
+          ready:
+            type: object
+            required: [url]
+            additionalProperties: false
+            properties:
+              url:              { type: string, format: uri }
+              status:           { type: integer, default: 200 }
+              timeout-seconds:  { type: integer, default: 120 }
+
+      packages:
+        type: array
+        minItems: 1
+        items:
+          oneOf:
+            - type: string
+              description: "Bare install string (e.g. '@angular/material@21.0.1')."
+            - type: object
+              required: [install]
+              additionalProperties: false
+              properties:
+                install:         { type: string }
+                changelog_url:   { type: string, format: uri }
+                changelog_path:  { type: string, description: "Path relative to /repo." }
+                changelog_text:  { type: string }
+
+      auth:
+        type: object
+        additionalProperties: false
+        properties:
+          login-flow:
+            type: object
+            additionalProperties: false
+            properties:
+              url:               { type: string }
+              username-env:      { type: string }
+              password-env:      { type: string }
+              success-selector:  { type: string }
+
+      routes:
+        type: array
+        items:
+          type: object
+          required: [path, goal]
+          additionalProperties: false
+          properties:
+            path: { type: string }
+            goal: { type: string }
+
+      flows:
+        type: array
+        items:
+          type: object
+          required: [id, goal]
+          additionalProperties: false
+          properties:
+            id:   { type: string }
+            goal: { type: string }
+
+      redact:
+        type: object
+        additionalProperties: false
+        properties:
+          selectors: { type: array, items: { type: string } }
+          text:      { type: array, items: { type: string } }
+
+      ignore:
+        type: object
+        additionalProperties: false
+        properties:
+          selectors: { type: array, items: { type: string } }
+          text:      { type: array, items: { type: string } }
+
+      exploration:
+        type: object
+        additionalProperties: false
+        properties:
+          max_depth:              { type: integer, default: 2,    maximum: 5 }
+          max_clicks_per_route:   { type: integer, default: 8,    maximum: 25 }
+          max_seconds_per_route:  { type: integer, default: 60 }
+          max_seconds_per_flow:   { type: integer, default: 120 }
+          max_seconds_total:      { type: integer, default: 1200, maximum: 3600 }
+          ignore_selectors:       { type: array, items: { type: string } }
+          stop_conditions:        { type: array, items: { type: string } }

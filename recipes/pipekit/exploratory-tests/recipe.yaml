@@ -1,0 +1,35 @@
+name: exploratory-tests
+version: 0.1.0
+description: Drive a browser via agent-browser to pursue natural-language goals against a target URL.
+prompt: ./prompt.md
+
+requires:
+  commands: [chromium, agent-browser]
+  env:      [ANTHROPIC_API_KEY]
+
+agents:
+  preferred: [claude-code]
+  models:
+    claude-code: opus
+
+inputs:
+  schema:
+    type: object
+    required: [target, goals]
+    additionalProperties: false
+    properties:
+      target:
+        type: string
+        format: uri
+      goals:
+        type: array
+        minItems: 1
+        items: { type: string }
+      auth:
+        type: object
+        additionalProperties: false
+        properties:
+          url:              { type: string }
+          username_env:     { type: string }
+          password_env:     { type: string }
+          success_selector: { type: string }

@@ -1,0 +1,84 @@
+name: playwright-from-diff
+version: 0.1.0
+description: |
+  Generate Playwright integration tests for the changed files in a PR/MR
+  diff, iterate on running them, and (optionally) open a PR with the work.
+  Reads existing tests in the repo to match conventions; degrades to a
+  bare changes.patch if PR-creation creds aren't present.
+prompt: ./prompt.md
+
+requires:
+  commands: [git, jq, node, npm]
+  env:      [ANTHROPIC_API_KEY]
+  mounts:   [/repo]
+
+agents:
+  preferred: [claude-code]
+  models:
+    claude-code: opus
+
+inputs:
+  schema:
+    type: object
+    required: [base_ref]
+    additionalProperties: false
+    properties:
+      base_ref:
+        type: string
+        description: "Merge target ref (e.g. 'origin/main', 'master'). Diff is computed against this."
+      head_ref:
+        type: string
+        default: HEAD
+        description: "Current branch / ref. Defaults to HEAD."
+      test_dir:
+        type: string
+        default: tests/e2e
+        description: "Directory under /repo where new specs are written."
+      file_globs:
+        type: object
+        additionalProperties: false
+        properties:
+          include: { type: array, items: { type: string } }
+          exclude:
+            type: array
+            items: { type: string }
+            default: ["**/*.test.*", "**/*.spec.*", "**/node_modules/**", "**/dist/**", "**/.next/**", "**/build/**"]
+      max_iterations:
+        type: integer
+        default: 3
+        minimum: 1
+        maximum: 10
+        description: "Per-failing-test fix-and-rerun budget. Survivors after this are dropped from the PR."
+      install_command:
+        type: string
+        description: "How to install repo deps (e.g. 'pnpm install', 'npm ci'). If omitted, the agent picks based on the lockfile."
+      playwright_command:
+        type: string
+        description: "How to run Playwright (e.g. 'pnpm playwright test', 'npx playwright test'). If omitted, the agent picks."
+      pr:
+        type: object
+        additionalProperties: false
+        properties:
+          host:
+            type: string
+            enum: [gitlab, github]
+            description: "Which forge to open the PR on. If omitted, detected from origin remote."
+          target_branch:
+            type: string
+            description: "Branch to merge into. Defaults to base_ref when it's a branch ref."
+          title:
+            type: string
+            default: "test(playwright): generated coverage for changed files"
+          body_template:
+            type: string
+            description: "Optional template; the recipe always appends a generated summary."
+          draft:
+            type: boolean
+            default: true
+          labels:
+            type: array
+            items: { type: string }
+      skip_pr:
+        type: boolean
+        default: false
+        description: "If true, skip PR creation; only write changes.patch."
