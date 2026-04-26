@@ -39,7 +39,7 @@ Every recipe is a directory with at minimum:
 In GitHub Actions:
 
 ```yaml
-- uses: altack/pipekit-action@main
+- uses: altack/pipekit/action@main
   with:
     recipe: '@pipekit/hello'
     inputs: |
